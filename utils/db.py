@@ -129,6 +129,50 @@ def get_jobs_in_period(start: date, end: date) -> list[dict]:
     )
 
 
+# ── Users (auth) ─────────────────────────────────────────────────────────────
+
+def get_user_by_technician_id(technician_id: int) -> dict | None:
+    client = get_client()
+    rows = (
+        client.table("users")
+        .select("id, username, active")
+        .eq("technician_id", technician_id)
+        .execute()
+        .data
+    )
+    return rows[0] if rows else None
+
+
+def get_user_by_username(username: str) -> dict | None:
+    client = get_client()
+    rows = (
+        client.table("users")
+        .select("*, technicians(name)")
+        .eq("username", username)
+        .execute()
+        .data
+    )
+    if not rows:
+        return None
+    user = rows[0]
+    if user.get("technicians"):
+        user["technician_name"] = user["technicians"]["name"]
+    return user
+
+
+def add_user(username: str, password_hash: str, role: str, technician_id: int | None = None) -> dict:
+    client = get_client()
+    row: dict = {"username": username, "password_hash": password_hash, "role": role}
+    if technician_id is not None:
+        row["technician_id"] = technician_id
+    return client.table("users").insert(row).execute().data[0]
+
+
+def update_user_password(username: str, password_hash: str) -> None:
+    client = get_client()
+    client.table("users").update({"password_hash": password_hash}).eq("username", username).execute()
+
+
 def get_jobs_for_technician_in_period(tech_id: int, start: date, end: date) -> list[dict]:
     db = get_client()
     return (
