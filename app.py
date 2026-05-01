@@ -20,5 +20,11 @@ else:
     else:
         pages = [new_visit_page, customers_page, analytics_page]
     pg = st.navigation(pages)
+    with st.sidebar:
+        st.caption(f"Logged in as **{st.session_state.get('user_name', '')}**")
+        if st.button("Log Out", use_container_width=True):
+            for key in ["authenticated", "role", "user_id", "user_name", "technician_id"]:
+                st.session_state.pop(key, None)
+            st.rerun()
 
 pg.run()

@@ -47,14 +47,10 @@ if "visit_summary" in st.session_state:
 st.title("New Visit")
 st.divider()
 
-if "job_count" not in st.session_state:
-    st.session_state["job_count"] = 1
-
-if st.button("+ Add Another Job"):
-    st.session_state["job_count"] += 1
-
-if st.button("- Remove Last Job") and st.session_state["job_count"] > 1:
-    st.session_state["job_count"] -= 1
+if "job_ids" not in st.session_state:
+    st.session_state["job_ids"] = [0]
+if "next_job_id" not in st.session_state:
+    st.session_state["next_job_id"] = 1
 
 # ── Customer selection ────────────────────────────────────────────────────────
 st.subheader("Customer")
@@ -113,27 +109,30 @@ visit_date = st.date_input("Visit Date", value=date.today())
 visit_notes = st.text_input("Visit Notes (optional)")
 
 # ── Jobs ──────────────────────────────────────────────────────────────────────
-st.subheader(f"Jobs ({st.session_state['job_count']})")
+st.subheader(f"Jobs ({len(st.session_state['job_ids'])})")
 
 technicians = db.get_technicians()
 tech_options = {t["name"]: t["id"] for t in technicians}
 tech_id_to_name = {t["id"]: t["name"] for t in technicians}
 
 job_entries = []
-for i in range(st.session_state["job_count"]):
-    st.markdown(f"**Job {i + 1}**")
-    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
-    service = col1.selectbox("Service", SERVICES, key=f"service_{i}")
+for job_id in list(st.session_state["job_ids"]):
+    col1, col2, col3, col4, col5 = st.columns([2, 2, 1, 1, 0.3])
+    service = col1.selectbox("Service", SERVICES, key=f"service_{job_id}")
     if is_admin():
-        tech_name = col2.selectbox("Technician", list(tech_options.keys()), key=f"tech_{i}")
+        tech_name = col2.selectbox("Technician", list(tech_options.keys()), key=f"tech_{job_id}")
         tech_id = tech_options[tech_name]
     else:
         my_id = current_technician_id()
         col2.write(f"**Technician:** {tech_id_to_name.get(my_id, 'Unknown')}")
         tech_id = my_id
-    cost = col3.number_input("Cost (₹)", min_value=0.0, step=50.0, key=f"cost_{i}")
-    payment = col4.selectbox("Payment", PAYMENT_METHODS, key=f"payment_{i}")
-    job_note = st.text_input("Job Notes (optional)", key=f"jobnote_{i}")
+    cost = col3.number_input("Cost (₹)", min_value=0, step=100, key=f"cost_{job_id}")
+    payment = col4.selectbox("Payment", PAYMENT_METHODS, key=f"payment_{job_id}")
+    if col5.button("✕", key=f"remove_{job_id}", help="Remove this job"):
+        if len(st.session_state["job_ids"]) > 1:
+            st.session_state["job_ids"].remove(job_id)
+        st.rerun()
+    job_note = st.text_input("Job Notes (optional)", key=f"jobnote_{job_id}")
     job_entries.append({
         "service": service,
         "tech_id": tech_id,
@@ -141,8 +140,12 @@ for i in range(st.session_state["job_count"]):
         "payment": PAYMENT_METHOD_MAP[payment],
         "note": job_note,
     })
-    if i < st.session_state["job_count"] - 1:
-        st.divider()
+    st.divider()
+
+if st.button("＋ Add Job", key="add_job_btn"):
+    st.session_state["job_ids"].append(st.session_state["next_job_id"])
+    st.session_state["next_job_id"] += 1
+    st.rerun()
 
 # ── Submit ────────────────────────────────────────────────────────────────────
 st.divider()
@@ -187,7 +190,8 @@ if st.button("Submit Visit", type="primary", use_container_width=True):
                 ],
                 "total": sum(j["cost"] for j in job_entries),
             }
-            st.session_state["job_count"] = 1
+            st.session_state["job_ids"] = [0]
+            st.session_state["next_job_id"] = 1
             if "new_customer_id" in st.session_state:
                 del st.session_state["new_customer_id"]
                 del st.session_state["new_customer_name"]
