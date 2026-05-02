@@ -2,6 +2,7 @@ import streamlit as st
 from datetime import date
 from utils.auth import require_login, is_admin, current_technician_id
 from utils.constants import SERVICES, PAYMENT_METHODS, PAYMENT_METHOD_MAP
+from utils.invoice import generate_invoice_pdf, generate_whatsapp_text, whatsapp_link
 import utils.db as db
 
 st.set_page_config(page_title="New Visit — PP Studio", page_icon="💅", layout="wide")
@@ -30,14 +31,35 @@ if "visit_summary" in st.session_state:
             c1, c2, c3, c4 = st.columns([2, 2, 1, 1])
             c1.write(f"**{job['service']}**")
             c2.write(job["tech_name"])
-            c3.write(f"₹{job['cost']:,.0f}")
+            c3.write(f"₹{int(job['cost']):,}")
             c4.write(PAYMENT_DISPLAY.get(job["payment"], job["payment"]))
             if job["note"]:
                 st.caption(job["note"])
 
     st.divider()
-    st.metric("Total", f"₹{summary['total']:,.0f}")
+    st.metric("Total", f"₹{int(summary['total']):,}")
 
+    # ── Invoice actions ───────────────────────────────────────────────────────
+    st.divider()
+    col_pdf, col_wa = st.columns(2)
+
+    pdf_bytes = generate_invoice_pdf(summary)
+    col_pdf.download_button(
+        "⬇ Download Invoice PDF",
+        data=pdf_bytes,
+        file_name=f"invoice_{summary['visit_id']}.pdf",
+        mime="application/pdf",
+        use_container_width=True,
+    )
+
+    if summary.get("customer_mobile"):
+        wa_text = generate_whatsapp_text(summary)
+        wa_url = whatsapp_link(summary["customer_mobile"], wa_text)
+        col_wa.link_button("💬 Send via WhatsApp", wa_url, use_container_width=True)
+    else:
+        col_wa.info("No mobile number — cannot send WhatsApp.")
+
+    st.divider()
     if st.button("Record Another Visit", type="primary", use_container_width=True):
         del st.session_state["visit_summary"]
         st.rerun()
