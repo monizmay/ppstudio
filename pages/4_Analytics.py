@@ -168,7 +168,7 @@ if is_admin():
 else:
     tab_technician, = st.tabs(["My Jobs"])
     with tab_technician:
-        st.subheader("My Performance")
+        st.subheader("My Job Details")
         my_id = current_technician_id()
         my_name = st.session_state.get("user_name", "")
         render_technician_tab(tech_id=my_id, tech_name=my_name, show_selector=False)

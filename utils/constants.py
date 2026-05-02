@@ -4,6 +4,7 @@ SERVICES = [
     "Eye Brows",
     "Lips",
     "Manicure Pedicure",
+    "Others (please mention in Job Notes)",
 ]
 
 PAYMENT_METHODS = ["Cash", "UPI/QR"]

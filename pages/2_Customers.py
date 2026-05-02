@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from utils.auth import require_login
+from utils.auth import require_login, is_admin, current_technician_id
 import utils.db as db
 
 st.set_page_config(page_title="Customers — PP Studio", page_icon="💅", layout="wide")
@@ -51,14 +51,20 @@ else:
         if cust.get("mobile"):
             label += f" — {cust['mobile']}"
         with st.expander(label):
-            col1, col2 = st.columns(2)
-            col1.write(f"**Address:** {cust.get('address') or '—'}")
-            col1.write(f"**Email:** {cust.get('email') or '—'}")
-            col2.write(f"**Notes:** {cust.get('notes') or '—'}")
-            col2.write(f"**Customer since:** {str(cust.get('created_at', ''))[:10]}")
+            if is_admin():
+                col1, col2 = st.columns(2)
+                col1.write(f"**Address:** {cust.get('address') or '—'}")
+                col1.write(f"**Email:** {cust.get('email') or '—'}")
+                col2.write(f"**Notes:** {cust.get('notes') or '—'}")
+                col2.write(f"**Customer since:** {str(cust.get('created_at', ''))[:10]}")
 
             st.markdown("##### Service History")
             jobs = db.get_jobs_for_customer(cust["id"])
+
+            if not is_admin():
+                my_id = current_technician_id()
+                jobs = [j for j in jobs if j.get("technician_id") == my_id]
+
             if not jobs:
                 st.write("No visits recorded yet.")
             else:

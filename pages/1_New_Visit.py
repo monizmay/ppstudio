@@ -105,7 +105,7 @@ else:
 
 # ── Visit date ────────────────────────────────────────────────────────────────
 st.subheader("Visit Details")
-visit_date = st.date_input("Visit Date", value=date.today())
+visit_date = st.date_input("Visit Date", value=date.today(), max_value=date.today())
 visit_notes = st.text_input("Visit Notes (optional)")
 
 # ── Jobs ──────────────────────────────────────────────────────────────────────
@@ -155,46 +155,58 @@ if st.button("Submit Visit", type="primary", use_container_width=True):
     elif not job_entries:
         st.error("Please add at least one job.")
     else:
-        try:
-            with st.spinner("Saving visit..."):
-                visit_id = db.add_visit(
-                    customer_id=selected_customer_id,
-                    visit_date=visit_date,
-                    notes=visit_notes.strip(),
-                )
-                for job in job_entries:
-                    db.add_job(
-                        visit_id=visit_id,
-                        service_name=job["service"],
-                        technician_id=job["tech_id"],
-                        cost=job["cost"],
-                        payment_method=job["payment"],
-                        notes=job["note"].strip(),
+        errors = []
+        for idx, job in enumerate(job_entries, 1):
+            if job["cost"] <= 0:
+                errors.append(f"Job {idx}: Cost must be greater than ₹0.")
+            if job["service"] == "Others (please mention in Job Notes)" and not job["note"].strip():
+                errors.append(f"Job {idx}: Job Notes are required when service is 'Others'.")
+            if not job["tech_id"]:
+                errors.append(f"Job {idx}: No technician linked to your account. Contact admin.")
+        if errors:
+            for e in errors:
+                st.error(e)
+        else:
+            try:
+                with st.spinner("Saving visit..."):
+                    visit_id = db.add_visit(
+                        customer_id=selected_customer_id,
+                        visit_date=visit_date,
+                        notes=visit_notes.strip(),
                     )
-            customer = db.get_customer_by_id(selected_customer_id)
-            st.session_state["visit_summary"] = {
-                "visit_id": visit_id,
-                "customer_name": customer["name"] if customer else "Unknown",
-                "customer_mobile": customer.get("mobile", "") if customer else "",
-                "visit_date": str(visit_date),
-                "visit_notes": visit_notes.strip(),
-                "jobs": [
-                    {
-                        "service": j["service"],
-                        "tech_name": tech_id_to_name.get(j["tech_id"], "Unknown"),
-                        "cost": j["cost"],
-                        "payment": j["payment"],
-                        "note": j["note"],
-                    }
-                    for j in job_entries
-                ],
-                "total": sum(j["cost"] for j in job_entries),
-            }
-            st.session_state["job_ids"] = [0]
-            st.session_state["next_job_id"] = 1
-            if "new_customer_id" in st.session_state:
-                del st.session_state["new_customer_id"]
-                del st.session_state["new_customer_name"]
-            st.rerun()
-        except Exception as e:
-            st.error(f"Failed to save visit. Please try again. ({e})")
+                    for job in job_entries:
+                        db.add_job(
+                            visit_id=visit_id,
+                            service_name=job["service"],
+                            technician_id=job["tech_id"],
+                            cost=job["cost"],
+                            payment_method=job["payment"],
+                            notes=job["note"].strip(),
+                        )
+                customer = db.get_customer_by_id(selected_customer_id)
+                st.session_state["visit_summary"] = {
+                    "visit_id": visit_id,
+                    "customer_name": customer["name"] if customer else "Unknown",
+                    "customer_mobile": customer.get("mobile", "") if customer else "",
+                    "visit_date": str(visit_date),
+                    "visit_notes": visit_notes.strip(),
+                    "jobs": [
+                        {
+                            "service": j["service"],
+                            "tech_name": tech_id_to_name.get(j["tech_id"], "Unknown"),
+                            "cost": j["cost"],
+                            "payment": j["payment"],
+                            "note": j["note"],
+                        }
+                        for j in job_entries
+                    ],
+                    "total": sum(j["cost"] for j in job_entries),
+                }
+                st.session_state["job_ids"] = [0]
+                st.session_state["next_job_id"] = 1
+                if "new_customer_id" in st.session_state:
+                    del st.session_state["new_customer_id"]
+                    del st.session_state["new_customer_name"]
+                st.rerun()
+            except Exception as e:
+                st.error(f"Failed to save visit. Please try again. ({e})")

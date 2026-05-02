@@ -18,7 +18,7 @@ else:
     if role == "admin":
         pages = [new_visit_page, customers_page, technicians_page, analytics_page]
     else:
-        pages = [new_visit_page, customers_page, analytics_page]
+        pages = [new_visit_page, analytics_page]
     pg = st.navigation(pages)
     with st.sidebar:
         st.caption(f"Logged in as **{st.session_state.get('user_name', '')}**")
