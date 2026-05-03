@@ -10,6 +10,13 @@ st.divider()
 
 # ── Add Technician ────────────────────────────────────────────────────────────
 with st.expander("Add New Technician"):
+    _status = st.session_state.pop("tech_add_status", None)
+    if _status:
+        if _status["ok"]:
+            st.success(_status["msg"], icon="✅")
+        else:
+            st.error(_status["msg"], icon="❌")
+
     with st.form("add_tech_form"):
         col1, col2 = st.columns(2)
         name = col1.text_input("Name *")
@@ -18,7 +25,7 @@ with st.expander("Add New Technician"):
 
     if submitted:
         if not name.strip():
-            st.error("Technician name is required.")
+            st.session_state["tech_add_status"] = {"ok": False, "msg": "Technician name is required."}
         else:
             tech = db.add_technician(name=name.strip(), phone=phone.strip())
             db.add_user(
@@ -27,8 +34,8 @@ with st.expander("Add New Technician"):
                 role="technician",
                 technician_id=tech["id"],
             )
-            st.success(f"Technician '{name.strip()}' added. Default login password is their name.")
-            st.rerun()
+            st.session_state["tech_add_status"] = {"ok": True, "msg": f"Technician '{name.strip()}' added. Default login password is their name."}
+        st.rerun()
 
 # ── Reset Password ────────────────────────────────────────────────────────────
 with st.expander("Reset Technician Password"):

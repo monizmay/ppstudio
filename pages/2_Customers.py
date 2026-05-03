@@ -15,6 +15,13 @@ customers = db.get_customers(search=search)
 
 # ── Add Customer ──────────────────────────────────────────────────────────────
 with st.expander("Add New Customer"):
+    _status = st.session_state.pop("customer_add_status", None)
+    if _status:
+        if _status["ok"]:
+            st.success(_status["msg"], icon="✅")
+        else:
+            st.error(_status["msg"], icon="❌")
+
     with st.form("add_customer_form"):
         col1, col2 = st.columns(2)
         name = col1.text_input("Full Name *")
@@ -27,7 +34,7 @@ with st.expander("Add New Customer"):
 
     if submitted:
         if not name.strip():
-            st.error("Customer name is required.")
+            st.session_state["customer_add_status"] = {"ok": False, "msg": "Customer name is required."}
         else:
             db.add_customer(
                 name=name.strip(),
@@ -36,8 +43,8 @@ with st.expander("Add New Customer"):
                 email=email.strip(),
                 notes=notes.strip(),
             )
-            st.success(f"Customer '{name.strip()}' added.")
-            st.rerun()
+            st.session_state["customer_add_status"] = {"ok": True, "msg": f"Customer '{name.strip()}' added successfully."}
+        st.rerun()
 
 st.divider()
 
