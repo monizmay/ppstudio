@@ -13,7 +13,10 @@ if "visit_summary" in st.session_state:
     PAYMENT_DISPLAY = {"CASH": "Cash", "UPI": "UPI/QR"}
 
     st.title("Visit Recorded")
-    st.success(f"Visit #{summary['visit_id']} saved successfully.")
+    st.success(
+        f"Visit #{summary['visit_id']} saved successfully."
+        + ("" if summary.get("approved") else " — pending admin approval.")
+    )
     st.divider()
 
     col1, col2 = st.columns(2)
@@ -182,10 +185,12 @@ if st.button("Submit Visit", type="primary", use_container_width=True):
                             cost=job["cost"],
                             payment_method=job["payment"],
                             notes=job["note"].strip(),
+                            approved=is_admin(),
                         )
                 customer = db.get_customer_by_id(selected_customer_id)
                 st.session_state["visit_summary"] = {
                     "visit_id": visit_id,
+                    "approved": is_admin(),
                     "customer_name": customer["name"] if customer else "Unknown",
                     "customer_mobile": customer.get("mobile", "") if customer else "",
                     "visit_date": str(visit_date),

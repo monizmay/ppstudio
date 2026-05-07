@@ -75,17 +75,72 @@ else:
             if not jobs:
                 st.write("No visits recorded yet.")
             else:
-                rows = []
-                for j in jobs:
-                    rows.append({
-                        "Date": j["visits"]["visit_date"],
-                        "Service": j["service_name"],
-                        "Technician": j["technicians"]["name"] if j.get("technicians") else "—",
-                        "Cost (₹)": j["cost"],
-                        "Payment": j["payment_method"],
-                        "Notes": j.get("notes") or "",
-                    })
-                df = pd.DataFrame(rows)
-                total = df["Cost (₹)"].sum()
-                st.dataframe(df, use_container_width=True, hide_index=True)
-                st.write(f"**Total spent: ₹{total:,.0f}** across {len(rows)} service(s)")
+                approved_jobs = [j for j in jobs if j.get("approved")]
+                pending_jobs  = [j for j in jobs if not j.get("approved")]
+                total = sum(j["cost"] for j in approved_jobs)
+
+                if is_admin():
+                    # Show delete feedback for this customer
+                    _del_status = st.session_state.pop(f"job_delete_status_{cust['id']}", None)
+                    if _del_status:
+                        st.success(_del_status, icon="✅")
+
+                    # Pending confirmation banner
+                    _pending = st.session_state.get("confirm_delete_job")
+                    if _pending and any(j["id"] == _pending for j in jobs):
+                        st.warning("Delete this job record? This cannot be undone.")
+                        _c1, _c2, _ = st.columns([1, 1, 6])
+                        if _c1.button("Confirm", key=f"confirm_{_pending}", type="primary"):
+                            db.delete_job(_pending)
+                            del st.session_state["confirm_delete_job"]
+                            st.session_state[f"job_delete_status_{cust['id']}"] = "Job deleted successfully."
+                            st.rerun()
+                        if _c2.button("Cancel", key=f"cancel_{_pending}"):
+                            del st.session_state["confirm_delete_job"]
+                            st.rerun()
+
+                    # Row-by-row layout with delete button
+                    hc = st.columns([2, 3, 2, 1, 1, 3, 1, 0.5])
+                    for h, label in zip(hc[:-1], ["Date", "Service", "Technician", "Cost (₹)", "Payment", "Notes", "Status"]):
+                        h.caption(label)
+                    for j in approved_jobs:
+                        rc = st.columns([2, 3, 2, 1, 1, 3, 1, 0.5])
+                        rc[0].write(j["visits"]["visit_date"])
+                        rc[1].write(j["service_name"])
+                        rc[2].write(j["technicians"]["name"] if j.get("technicians") else "—")
+                        rc[3].write(f"₹{j['cost']:,.0f}")
+                        rc[4].write(j["payment_method"])
+                        rc[5].write(j.get("notes") or "")
+                        rc[6].write(":green[✅ Approved]")
+                        if rc[7].button("🗑", key=f"del_{j['id']}", help="Delete this job"):
+                            st.session_state["confirm_delete_job"] = j["id"]
+                            st.rerun()
+                    for j in pending_jobs:
+                        rc = st.columns([2, 3, 2, 1, 1, 3, 1, 0.5])
+                        rc[0].write(j["visits"]["visit_date"])
+                        rc[1].write(j["service_name"])
+                        rc[2].write(j["technicians"]["name"] if j.get("technicians") else "—")
+                        rc[3].write(f"₹{j['cost']:,.0f}")
+                        rc[4].write(j["payment_method"])
+                        rc[5].write(j.get("notes") or "")
+                        rc[6].write(":orange[⏳ Pending]")
+                        if rc[7].button("🗑", key=f"del_{j['id']}", help="Delete this job"):
+                            st.session_state["confirm_delete_job"] = j["id"]
+                            st.rerun()
+                else:
+                    rows = [
+                        {
+                            "Date": j["visits"]["visit_date"],
+                            "Service": j["service_name"],
+                            "Technician": j["technicians"]["name"] if j.get("technicians") else "—",
+                            "Cost (₹)": j["cost"],
+                            "Payment": j["payment_method"],
+                            "Notes": j.get("notes") or "",
+                            "Status": "✅ Approved" if j.get("approved") else "⏳ Pending",
+                        }
+                        for j in jobs
+                    ]
+                    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+                st.write(f"**Total spent: ₹{total:,.0f}** across {len(approved_jobs)} approved service(s)"
+                         + (f" · {len(pending_jobs)} pending" if pending_jobs else ""))

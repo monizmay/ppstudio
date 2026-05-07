@@ -1,4 +1,5 @@
 import streamlit as st
+import utils.db as db
 
 st.set_page_config(page_title="PP Studio", page_icon="💅", layout="wide")
 
@@ -10,13 +11,20 @@ new_visit_page   = st.Page("pages/1_New_Visit.py",   title="New Visit")
 customers_page   = st.Page("pages/2_Customers.py",   title="Customers")
 technicians_page = st.Page("pages/3_Technicians.py", title="Technicians")
 analytics_page   = st.Page("pages/4_Analytics.py",   title="Analytics")
+approvals_page   = st.Page("pages/6_Approvals.py",   title="Approvals")
 
 if not st.session_state["authenticated"]:
     pg = st.navigation([login_page], position="hidden")
 else:
     role = st.session_state.get("role", "")
     if role == "admin":
-        pages = [new_visit_page, customers_page, technicians_page, analytics_page]
+        try:
+            pending_count = len(db.get_pending_jobs())
+        except Exception:
+            pending_count = 0
+        approval_title = f"Approvals ({pending_count})" if pending_count else "Approvals"
+        approvals_page = st.Page("pages/6_Approvals.py", title=approval_title)
+        pages = [new_visit_page, customers_page, technicians_page, analytics_page, approvals_page]
     else:
         pages = [new_visit_page, analytics_page]
     pg = st.navigation(pages)

@@ -85,7 +85,8 @@ def add_visit(customer_id: int, visit_date: date, notes: str = "") -> int:
 # ── Jobs ─────────────────────────────────────────────────────────────────────
 
 def add_job(visit_id: int, service_name: str, technician_id: int,
-            cost: float, payment_method: str, notes: str = "") -> dict:
+            cost: float, payment_method: str, notes: str = "",
+            approved: bool = False) -> dict:
     db = get_client()
     row = {
         "visit_id": visit_id,
@@ -94,10 +95,30 @@ def add_job(visit_id: int, service_name: str, technician_id: int,
         "job_datetime": datetime.now().isoformat(),
         "cost": cost,
         "payment_method": payment_method,
+        "approved": approved,
     }
     if notes:
         row["notes"] = notes
     return db.table("jobs").insert(row).execute().data[0]
+
+
+def approve_job(job_id: int):
+    get_client().table("jobs").update({"approved": True}).eq("id", job_id).execute()
+
+
+def get_pending_jobs() -> list[dict]:
+    return (
+        get_client().table("jobs")
+        .select("*, visits!inner(visit_date, customers!inner(name)), technicians(name)")
+        .eq("approved", False)
+        .order("job_datetime", desc=True)
+        .execute()
+        .data
+    )
+
+
+def delete_job(job_id: int):
+    get_client().table("jobs").delete().eq("id", job_id).execute()
 
 
 def get_jobs_for_customer(customer_id: int) -> list[dict]:
@@ -116,11 +137,12 @@ def get_jobs_for_customer(customer_id: int) -> list[dict]:
 # ── Analytics ────────────────────────────────────────────────────────────────
 
 def get_jobs_in_period(start: date, end: date) -> list[dict]:
-    """Returns all jobs (with technician name) between start and end dates inclusive."""
+    """Returns approved jobs (with technician name) between start and end dates inclusive."""
     db = get_client()
     return (
         db.table("jobs")
         .select("*, visits!inner(visit_date), technicians(name)")
+        .eq("approved", True)
         .gte("visits.visit_date", str(start))
         .lte("visits.visit_date", str(end))
         .order("job_datetime", desc=True)
@@ -179,6 +201,7 @@ def get_jobs_for_technician_in_period(tech_id: int, start: date, end: date) -> l
         db.table("jobs")
         .select("*, visits!inner(visit_date), technicians(name)")
         .eq("technician_id", tech_id)
+        .eq("approved", True)
         .gte("visits.visit_date", str(start))
         .lte("visits.visit_date", str(end))
         .order("job_datetime", desc=True)
